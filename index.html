@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bazel in the IDE</title>
+<style>
+:root {
+  --bg: #fbfaf7; --fg: #1d1d1f; --muted: #6e6e76; --line: #e8e5de; --card: #ffffff; --code: #f0ede6;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05);
+  --green: #43a047; --green-l: #76d275; --green-d: #00701a;
+  --purple: #6b57ff; --pink: #ff318c; --orange: #f57c00; --blue: #087cfa;
+  --accent: var(--green);
+  --sans: "Inter", "SF Pro Display", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+[data-theme=dark] {
+  --bg: #131316; --fg: #f1f1f3; --muted: #9b9ba5; --line: #2a2a30; --card: #1b1b20; --code: #26262c;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: var(--sans); overflow: hidden; }
+a { color: inherit; }
+
+/* fixed 16:9 canvas, scaled to fit */
+#canvas { position: absolute; left: 50%; top: 50%; width: 1600px; height: 900px; transform-origin: center; background: var(--bg); overflow: hidden; }
+
+.slide { position: absolute; inset: 0; padding: 92px 128px 120px; display: none; flex-direction: column; }
+.slide.active { display: flex; animation: slideIn .45s cubic-bezier(.2,.7,.2,1) both; }
+.body { flex: 1; display: flex; flex-direction: column; position: relative; z-index: 1; min-height: 0; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.anim { animation: rise .5s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i, 0) * 60ms + 140ms); }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* type */
+.kicker { font: 600 19px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 22px; display: flex; align-items: center; gap: 14px; }
+.kicker::before { content: ""; width: 12px; height: 12px; background: var(--accent); transform: rotate(45deg); border-radius: 2px; }
+h1 { font-size: 112px; font-weight: 800; letter-spacing: -.035em; line-height: 1; margin: 0; }
+h2 { font-size: 62px; font-weight: 750; letter-spacing: -.025em; line-height: 1.05; margin: 0 0 22px; }
+.lead { font-size: 32px; color: var(--muted); margin: 0 0 28px; max-width: 1200px; line-height: 1.35; }
+code { font-family: var(--mono); font-size: .84em; background: var(--code); padding: .06em .34em; border-radius: 6px; }
+strong { font-weight: 700; background: linear-gradient(transparent 64%, color-mix(in srgb, var(--accent) 24%, transparent) 0); }
+
+/* bullets */
+ul.b, ul.sub { list-style: none; padding: 0; margin: 10px 0 0; }
+ul.b > li { font-size: 34px; line-height: 1.35; margin: 0 0 16px; padding-left: 46px; position: relative; }
+ul.b > li::before { content: ""; position: absolute; left: 6px; top: .5em; width: 13px; height: 13px; background: var(--accent); transform: rotate(45deg); border-radius: 2px; }
+ul.sub { margin: 6px 0 2px; }
+ul.sub > li { font-size: 27px; line-height: 1.35; color: var(--muted); margin: 4px 0; padding-left: 34px; position: relative; }
+ul.sub > li::before { content: ""; position: absolute; left: 4px; top: .55em; width: 8px; height: 8px; border: 2px solid var(--accent); transform: rotate(45deg); border-radius: 1px; opacity: .75; }
+li.nob::before { display: none; }
+
+/* callouts */
+.callouts { margin-top: auto; padding-top: 20px; display: flex; flex-direction: column; gap: 14px; }
+.callout { display: flex; gap: 20px; align-items: flex-start; padding: 20px 26px; border-radius: 18px; font-size: 27px; line-height: 1.35; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: 1280px; }
+.callout .tag { font: 600 15px/1 var(--mono); text-transform: uppercase; letter-spacing: .1em; padding: 8px 11px; border-radius: 8px; white-space: nowrap; margin-top: 5px; display: inline-flex; gap: 8px; align-items: center; }
+.callout.note .tag { background: var(--code); color: var(--muted); }
+.callout.ask { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 18px 18px 18px 4px; }
+.callout.ask .tag { background: var(--accent); color: #fff; }
+.callout.ask .tag svg { width: 15px; height: 15px; animation: wiggle 2.8s ease-in-out 1s infinite; transform-origin: 50% 80%; }
+@keyframes wiggle { 0%, 86%, 100% { transform: rotate(0); } 90% { transform: rotate(-12deg); } 95% { transform: rotate(10deg); } }
+
+/* cards */
+.cards { display: grid; gap: 22px; margin-top: 8px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 28px 30px; box-shadow: var(--shadow); transition: transform .25s, border-color .25s; position: relative; overflow: hidden; }
+.card::after { content: ""; position: absolute; left: 0; top: 0; height: 4px; width: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform .35s; }
+.card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.card:hover::after { transform: scaleX(1); }
+.card h3 { font-size: 31px; letter-spacing: -.01em; margin: 0 0 12px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.card p { font-size: 25px; line-height: 1.4; color: var(--muted); margin: 0; }
+.card ul.b > li { font-size: 24px; padding-left: 30px; margin-bottom: 8px; }
+.card ul.b > li::before { width: 9px; height: 9px; left: 4px; }
+.pill { font: 600 13px/1 var(--mono); padding: 7px 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); text-transform: uppercase; letter-spacing: .07em; }
+
+/* questions */
+.qs { display: flex; flex-direction: column; gap: 26px; margin-top: 12px; }
+.q { display: flex; gap: 26px; align-items: flex-start; }
+.q .n { flex: none; width: 60px; height: 60px; border-radius: 18px 18px 18px 4px; background: var(--accent); color: #fff; font: 700 22px/60px var(--mono); text-align: center; }
+.q .t { font-size: 36px; line-height: 1.28; font-weight: 650; letter-spacing: -.01em; padding-top: 6px; }
+.q .h { font-size: 25px; color: var(--muted); margin-top: 8px; font-weight: 400; line-height: 1.4; }
+
+/* title + end */
+.title-body, .end-body { justify-content: center; align-items: flex-start; }
+.logo-jb { display: inline-flex; }
+.logo-jb img { height: 100%; width: auto; display: block; }
+[data-theme=dark] .logo-jb .lt, :root:not([data-theme=dark]) .logo-jb .dk { display: none; }
+.title-logos { display: flex; align-items: center; gap: 34px; margin-bottom: 52px; }
+.title-logos .logo-jb { height: 72px; }
+.title-logos .logo-bz { width: 96px; height: 96px; }
+.title-logos .logo-jb { animation: bob 5s ease-in-out infinite; }
+.title-logos .logo-bz { animation: bob 5s ease-in-out -2.5s infinite; }
+.heart { color: var(--pink); font-size: 34px; animation: pulse 2.4s ease-in-out infinite; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.22); } 24% { transform: scale(1); } }
+.t-title h1 { margin-bottom: 26px; }
+.end-sub { margin-top: 24px; }
+.presenter { font: 500 22px/1 var(--mono); color: var(--muted); margin-top: 14px; }
+.links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+.links a { font: 500 21px/1 var(--mono); padding: 14px 18px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); text-decoration: none; transition: border-color .2s, transform .2s; }
+.links a:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+/* section divider */
+.sec-body { justify-content: center; }
+.sec-num { font: 800 210px/.85 var(--sans); letter-spacing: -.05em; color: color-mix(in srgb, var(--accent) 22%, transparent); margin-bottom: 26px; }
+.sec-meta { font: 600 19px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 18px; }
+.t-section h1 { font-size: 104px; margin-bottom: 22px; }
+.chips { display: flex; flex-wrap: wrap; gap: 12px; max-width: 1200px; margin-top: 10px; }
+.chip { font-size: 21px; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); cursor: pointer; transition: border-color .2s, color .2s; }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* toc slide */
+.toc { display: grid; gap: 34px; margin-top: 18px; }
+.toc-col { border-top: 4px solid var(--accent); padding-top: 22px; }
+.toc-col .tn { font: 700 22px/1 var(--mono); color: var(--accent); }
+.toc-col .tt { font-size: 36px; font-weight: 750; letter-spacing: -.02em; margin: 12px 0 6px; cursor: pointer; }
+.toc-col .td { font: 500 17px/1 var(--mono); color: var(--muted); margin-bottom: 16px; }
+.toc-col ol { list-style: none; margin: 0; padding: 0; }
+.toc-col li { font-size: 22px; padding: 6px 0; color: var(--muted); cursor: pointer; transition: transform .2s, color .2s; }
+.toc-col li:hover { color: var(--fg); transform: translateX(6px); }
+.toc-end { margin-top: auto; font-size: 24px; color: var(--muted); }
+.toc-end span { cursor: pointer; color: var(--fg); font-weight: 650; }
+
+/* floating cubes */
+.floats { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.floats svg { position: absolute; animation: drift var(--d, 9s) ease-in-out var(--dl, 0s) infinite; }
+@keyframes drift { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-18px) rotate(4deg); } }
+
+/* footer */
+.foot { position: absolute; left: 128px; right: 128px; bottom: 36px; display: flex; align-items: center; justify-content: space-between; font: 500 16px/1 var(--mono); color: var(--muted); z-index: 2; }
+.foot > div { display: flex; align-items: center; gap: 12px; flex: 1; white-space: nowrap; }
+.foot .fc { justify-content: center; }
+.foot .fr { justify-content: flex-end; }
+.foot .logo-jb { height: 22px; }
+.foot .logo-bz { width: 24px; height: 24px; }
+.foot .dot { width: 9px; height: 9px; background: var(--accent); transform: rotate(45deg); border-radius: 1px; }
+.tocbtn { font: inherit; color: inherit; background: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.tocbtn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* progress */
+.prog { position: absolute; left: 0; top: 0; height: 5px; width: 100%; background: var(--line); z-index: 3; }
+.prog i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--green), var(--blue), var(--purple), var(--pink), var(--orange)); background-size: 1600px 100%; transition: width .5s cubic-bezier(.2,.7,.2,1); }
+.prog-cube { position: absolute; top: 10px; width: 20px; height: 20px; color: var(--accent); z-index: 3; transition: left .5s cubic-bezier(.2,.7,.2,1), color .4s; }
+.prog-cube.hop { animation: hop .5s ease-out; }
+@keyframes hop { 0% { transform: translateY(0); } 40% { transform: translateY(-8px) rotate(-8deg); } 100% { transform: translateY(0); } }
+
+/* overlays (window space) */
+#overlay { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(8px); }
+#overlay.open { display: flex; animation: fade .2s ease both; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+#overlay .panel { background: var(--card); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); padding: 28px 34px; max-width: min(1100px, 92vw); max-height: 86vh; overflow: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 26px; }
+#overlay h4 { margin: 0 0 10px; font-size: 16px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--accent); }
+#overlay a { display: flex; gap: 10px; padding: 5px 8px; margin: 0 -8px; border-radius: 8px; font-size: 15px; text-decoration: none; cursor: pointer; }
+#overlay a span { font-family: var(--mono); color: var(--muted); min-width: 22px; }
+#overlay a:hover { background: var(--code); }
+#overlay a.cur { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+#notes { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9; background: var(--card); border-top: 1px solid var(--line); padding: 16px 28px 20px; font-size: 17px; line-height: 1.5; max-height: 32vh; overflow: auto; transform: translateY(100%); transition: transform .25s; }
+#notes.open { transform: none; }
+#notes b { font: 600 12px/1 var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); display: block; margin-bottom: 8px; }
+#hint { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 8; font: 500 13px/1 var(--mono); color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; transition: opacity .6s; pointer-events: none; }
+#hint.gone { opacity: 0; }
+#err { position: fixed; inset: 20px; z-index: 20; display: none; background: #fff3f3; color: #8a1c1c; border: 1px solid #f0b4b4; border-radius: 14px; padding: 24px; font: 14px/1.5 var(--mono); white-space: pre-wrap; overflow: auto; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+@media print {
+  @page { size: 1600px 900px; margin: 0; }
+  html, body { overflow: visible; height: auto; }
+  #canvas { position: relative; left: 0; top: 0; transform: none !important; height: auto; overflow: visible; }
+  .slide { display: flex !important; position: relative; height: 900px; break-after: page; }
+  .prog, .prog-cube, #overlay, #notes, #hint, .tocbtn { display: none !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div id="canvas">
+  <div class="prog"><i></i></div>
+  <div class="prog-cube"></div>
+  <div id="deck"></div>
+</div>
+<div id="overlay"><div class="panel"></div></div>
+<div id="notes"></div>
+<div id="hint">← → navigate · T contents · N notes · F fullscreen · D dark mode</div>
+<pre id="err"></pre>
+
+<script>
+  // show syntax errors from slides.js on the page instead of a blank screen
+  window.addEventListener('error', e => {
+    const el = document.getElementById('err');
+    el.style.display = 'block';
+    el.textContent = 'Could not load the slides.\n\n' + e.message + '\n' + (e.filename || '') + (e.lineno ? ':' + e.lineno : '');
+  });
+</script>
+<script>document.write('<script src="slides.js?v=' + Date.now() + '"><\/script>');</script>
+<script>
+(() => {
+  const D = window.DECK;
+  if (!D) return;
+  const meta = D.meta || {};
+  const $ = s => document.querySelector(s);
+  const canvas = $('#canvas'), deck = $('#deck');
+
+  const ACCENTS = { green: 'var(--green)', purple: 'var(--purple)', orange: 'var(--orange)', blue: 'var(--blue)', pink: 'var(--pink)' };
+  const accent = c => ACCENTS[c] || c || 'var(--green)';
+  const pad = n => String(n).padStart(2, '0');
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function md(s) {
+    const codes = [];
+    return esc(s)
+      .replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; })
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*\w])\*(?!\s)([^*]+?)\*(?!\w)/g, '$1<em>$2</em>')
+      .replace(/-&gt;/g, '→')
+      .replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[i]}</code>`);
+  }
+
+  // official logos; the JetBrains logo has a light-theme and a dark-theme variant
+  const logos = { jetbrains: 'logos/jetbrains.svg', jetbrainsDark: 'logos/jetbrains-mono-white.svg', bazel: 'logos/bazel-icon.svg', ...meta.logos };
+  const jb = () => `<span class="logo logo-jb"><img class="lt" src="${esc(logos.jetbrains)}" alt="JetBrains">` +
+    `<img class="dk" src="${esc(logos.jetbrainsDark || logos.jetbrains)}" alt="JetBrains"></span>`;
+  const bazel = () => `<img class="logo logo-bz" src="${esc(logos.bazel)}" alt="Bazel">`;
+  const cube = (style = '') => `<svg viewBox="0 0 100 100" style="${style}"><polygon points="50,6 88,28 50,50 12,28" fill="currentColor"/>` +
+    `<polygon points="12,28 50,50 50,94 12,72" fill="currentColor" fill-opacity=".72"/><polygon points="88,28 50,50 50,94 88,72" fill="currentColor" fill-opacity=".45"/></svg>`;
+  const bubble = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>`;
+  const FLOAT_POS = [[84, 16, 70, .16], [72, 62, 120, .12], [90, 74, 44, .22], [62, 12, 34, .18], [94, 40, 28, .2], [56, 82, 56, .1], [78, 36, 22, .25]];
+  const floats = (n, color) => `<div class="floats" style="color:${color}">` +
+    FLOAT_POS.slice(0, n).map(([x, y, s, o], i) => cube(`left:${x}%;top:${y}%;width:${s}px;height:${s}px;opacity:${o};--d:${8 + i * 1.4}s;--dl:${-i * 1.7}s`)).join('') + `</div>`;
+
+  // flatten sections into a slide list
+  const slides = [{ type: 'title' }];
+  if (meta.toc !== false) slides.push({ type: 'toc', title: 'Contents' });
+  (D.sections || []).forEach((sec, si) => {
+    sec._n = si + 1; sec._idx = [];
+    if (sec.divider !== false) { sec._first = slides.length; slides.push({ type: 'section', title: sec.title, sec }); }
+    (sec.slides || []).forEach(s => { sec._idx.push(slides.length); slides.push({ ...s, type: s.layout || 'bullets', sec }); });
+    if (sec._first == null) sec._first = sec._idx[0];
+  });
+  if (D.closing) slides.push({ type: 'end', ...D.closing });
+  const N = slides.length;
+  const titleOf = s => s.title || (s.type === 'title' ? meta.title : s.sec?.title) || '';
+
+  function render(s, i) {
+    let k = 0;
+    const A = () => `style="--i:${k++}"`;
+    const list = (items, depth = 0) => {
+      let h = '', open = false;
+      for (const it of items || []) {
+        if (Array.isArray(it)) {
+          if (open) h = h.replace(/<\/li>$/, '') + list(it, depth + 1) + '</li>';
+          else h += `<li class="nob">${list(it, depth + 1)}</li>`;
+        } else { h += `<li class="anim" ${A()}>${md(it)}</li>`; open = true; }
+      }
+      return `<ul class="${depth ? 'sub' : 'b'}">${h}</ul>`;
+    };
+    const head = () => (s.kicker ? `<div class="kicker anim" ${A()}>${md(s.kicker)}</div>` : '') +
+      `<h2 class="anim" ${A()}>${md(s.title)}</h2>` + (s.lead ? `<p class="lead anim" ${A()}>${md(s.lead)}</p>` : '');
+    const callouts = () => {
+      const notes = [].concat(s.note || []), asks = [].concat(s.ask || []);
+      if (!notes.length && !asks.length) return '';
+      return `<div class="callouts">` +
+        notes.map(t => `<div class="callout note anim" ${A()}><span class="tag">Note</span><div>${md(t)}</div></div>`).join('') +
+        asks.map(t => `<div class="callout ask anim" ${A()}><span class="tag">${bubble}Ask</span><div>${md(t)}</div></div>`).join('') + `</div>`;
+    };
+    const go = (idx, cls, label) => `<span class="${cls}" data-go="${idx}">${md(label)}</span>`;
+
+    switch (s.type) {
+      case 'title': return `${floats(7, 'var(--green)')}<div class="body title-body">
+        <div class="title-logos anim" ${A()}>${jb()}<span class="heart">♥</span>${bazel()}</div>
+        ${meta.event ? `<div class="kicker anim" ${A()}>${md(meta.event)}</div>` : ''}
+        <h1 class="anim" ${A()}>${md(meta.title)}</h1>
+        ${meta.subtitle ? `<p class="lead anim" ${A()}>${md(meta.subtitle)}</p>` : ''}
+        ${meta.presenter ? `<div class="presenter anim" ${A()}>${md(meta.presenter)}</div>` : ''}</div>`;
+      case 'toc': return `<div class="body"><div class="kicker anim" ${A()}>Agenda</div><h2 class="anim" ${A()}>Contents</h2>
+        <div class="toc" style="grid-template-columns:repeat(${D.sections.length},1fr)">` +
+        D.sections.map(sec => `<div class="toc-col anim" style="--accent:${accent(sec.accent)};--i:${k++}">
+          <div class="tn">${pad(sec._n)}</div><div class="tt" data-go="${sec._first}">${md(sec.title)}</div>
+          ${sec.duration ? `<div class="td">${esc(sec.duration)}</div>` : ''}
+          <ol>${sec._idx.map(ix => `<li data-go="${ix}">${md(titleOf(slides[ix]))}</li>`).join('')}</ol></div>`).join('') +
+        `</div>${D.closing ? `<div class="toc-end anim" ${A()}>→ ${go(N - 1, '', D.closing.title)}</div>` : ''}</div>`;
+      case 'section': { const sec = s.sec;
+        return `${floats(5, accent(sec.accent))}<div class="body sec-body">
+        <div class="sec-num anim" ${A()}>${pad(sec._n)}</div>
+        <div class="sec-meta anim" ${A()}>Part ${sec._n}${sec.duration ? ' · ' + esc(sec.duration) : ''}</div>
+        <h1 class="anim" ${A()}>${md(sec.title)}</h1>
+        ${sec.subtitle ? `<p class="lead anim" ${A()}>${md(sec.subtitle)}</p>` : ''}
+        <div class="chips">${sec._idx.map(ix => `<span class="chip anim" ${A()} data-go="${ix}">${md(titleOf(slides[ix]))}</span>`).join('')}</div></div>`; }
+      case 'cards': { const n = (s.cards || []).length, cols = s.columns || (n <= 2 ? 2 : n === 4 ? 2 : 3);
+        return `<div class="body">${head()}<div class="cards" style="grid-template-columns:repeat(${cols},1fr)">` +
+          (s.cards || []).map(c => `<div class="card anim" ${A()}><h3>${md(c.label)}${c.tag ? `<span class="pill">${md(c.tag)}</span>` : ''}</h3>` +
+            (c.text ? `<p>${md(c.text)}</p>` : '') + (c.items ? list(c.items) : '') + `</div>`).join('') + `</div>${callouts()}</div>`; }
+      case 'questions': { const qs = [];
+        for (const it of s.bullets || []) Array.isArray(it) ? qs.length && qs[qs.length - 1].h.push(...it.flat(Infinity)) : qs.push({ t: it, h: [] });
+        return `<div class="body">${head()}<div class="qs">` + qs.map((q, qi) => `<div class="q anim" ${A()}><div class="n">Q${qi + 1}</div><div><div class="t">${md(q.t)}</div>` +
+          (q.h.length ? `<div class="h">${q.h.map(md).join(' · ')}</div>` : '') + `</div></div>`).join('') + `</div>${callouts()}</div>`; }
+      case 'end': return `${floats(6, 'var(--green)')}<div class="body end-body">
+        <div class="title-logos anim" ${A()}>${jb()}<span class="heart">♥</span>${bazel()}</div>
+        <h1 class="anim" ${A()}>${md(s.title)}</h1>
+        ${s.subtitle ? `<p class="lead anim end-sub" ${A()}>${md(s.subtitle)}</p>` : ''}
+        <div class="links">${(s.links || []).map(l => `<a class="anim" ${A()} href="${esc(l.url)}" target="_blank" rel="noopener">${md(l.label)}</a>`).join('')}</div></div>`;
+      default: return `<div class="body">${head()}${list(s.bullets)}${callouts()}</div>`;
+    }
+  }
+
+  const footer = (s, i) => `<div class="foot"><div>${jb()}${bazel()}<span>${md(meta.short || meta.title)}</span></div>
+    <div class="fc">${s.sec ? `<span class="dot"></span>${md(s.sec.title)}` : ''}</div>
+    <div class="fr"><span>${i + 1} / ${N}</span><button class="tocbtn" title="Contents (T)">☰</button></div></div>`;
+
+  deck.innerHTML = slides.map((s, i) => `<section class="slide t-${s.type}" style="--accent:${s.sec ? accent(s.sec.accent) : 'var(--green)'}">` +
+    render(s, i) + (s.type !== 'title' ? footer(s, i) : '') + `</section>`).join('');
+  const els = [...deck.children];
+
+  // contents overlay
+  const overlay = $('#overlay'), panel = overlay.querySelector('.panel');
+  const groups = [{ title: 'Intro', accent: 'var(--green)', idx: slides.map((s, i) => i).filter(i => !slides[i].sec && slides[i].type !== 'end') }]
+    .concat(D.sections.map(sec => ({ title: sec.title, accent: accent(sec.accent), idx: slides.map((s, i) => i).filter(i => slides[i].sec === sec) })))
+    .concat(D.closing ? [{ title: 'Closing', accent: 'var(--green)', idx: [N - 1] }] : []);
+  panel.innerHTML = groups.map(g => `<div style="--accent:${g.accent}"><h4>${md(g.title)}</h4>` +
+    g.idx.map(i => `<a data-go="${i}"><span>${i + 1}</span>${md(slides[i].type === 'section' ? 'Part ' + slides[i].sec._n + ': ' + titleOf(slides[i]) : titleOf(slides[i]))}</a>`).join('') + `</div>`).join('');
+  const toggleToc = force => overlay.classList.toggle('open', force);
+
+  // notes
+  const notesEl = $('#notes');
+  const renderNotes = () => { const n = slides[cur].notes; notesEl.innerHTML = `<b>Notes · ${cur + 1}</b>` + (n ? [].concat(n).map(md).join('<br>') : '<span style="opacity:.5">No notes</span>'); };
+
+  // navigation
+  const bar = $('.prog i'), pcube = $('.prog-cube');
+  pcube.innerHTML = cube('width:100%;height:100%');
+  let cur = -1;
+  function go(i, fromHash) {
+    i = Math.max(0, Math.min(N - 1, i | 0));
+    if (i === cur) return;
+    els[cur]?.classList.remove('active');
+    cur = i;
+    els[i].classList.add('active');
+    canvas.style.setProperty('--accent', els[i].style.getPropertyValue('--accent'));
+    const p = N > 1 ? i / (N - 1) : 0;
+    bar.style.width = (p * 100) + '%';
+    pcube.style.left = (6 + p * (1600 - 32)) + 'px';
+    pcube.classList.remove('hop'); void pcube.offsetWidth; pcube.classList.add('hop');
+    panel.querySelectorAll('a').forEach(a => a.classList.toggle('cur', +a.dataset.go === i));
+    renderNotes();
+    if (!fromHash) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  document.addEventListener('click', e => {
+    const g = e.target.closest('[data-go]');
+    if (g) { go(+g.dataset.go); toggleToc(false); return; }
+    if (e.target.closest('.tocbtn')) return toggleToc();
+    if (e.target === overlay) toggleToc(false);
+  });
+  addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); go(cur + 1); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); go(cur - 1); }
+    else if (k === 'Home') go(0);
+    else if (k === 'End') go(N - 1);
+    else if (k === 't' || k === 'T') toggleToc();
+    else if (k === 'n' || k === 'N') notesEl.classList.toggle('open');
+    else if (k === 'f' || k === 'F') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+    else if (k === 'd' || k === 'D') setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true);
+    else if (k === 'Escape') { toggleToc(false); notesEl.classList.remove('open'); }
+  });
+  let tx = null;
+  addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', e => { if (tx == null) return; const dx = e.changedTouches[0].clientX - tx; if (Math.abs(dx) > 50) go(cur + (dx < 0 ? 1 : -1)); tx = null; });
+  addEventListener('hashchange', () => go(parseInt(location.hash.slice(1), 10) - 1, true));
+
+  function setTheme(t, save) { document.documentElement.dataset.theme = t; if (save) localStorage.setItem('deck-theme', t); }
+  setTheme(localStorage.getItem('deck-theme') || meta.theme || 'light');
+
+  const fit = () => { const s = Math.min(innerWidth / 1600, innerHeight / 900); canvas.style.transform = `translate(-50%,-50%) scale(${s})`; };
+  addEventListener('resize', fit); fit();
+
+  document.title = meta.title || document.title;
+  go((parseInt(location.hash.slice(1), 10) || 1) - 1, true);
+  setTimeout(() => $('#hint').classList.add('gone'), 4500);
+})();
+</script>
+</body>
+</html>
