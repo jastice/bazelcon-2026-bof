@@ -69,7 +69,7 @@ window.DECK = {
         {
           "kicker": "Sync",
           "title": "Standalone aspect",
-          "lead": "The aspect is now a Bazel module from BCR.",
+          "lead": "The aspect is now a Bazel module.",
           "bullets": [
             "No more templated files dropped into your repo",
             "Proto aligned with the CLion Bazel plugin",
