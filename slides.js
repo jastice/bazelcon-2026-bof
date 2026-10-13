@@ -242,6 +242,7 @@ window.DECK = {
     "title": "Other contributions?",
     "subtitle": "Thank you!",
     "links": [
+      { "label": "jastice.github.io/bazelcon-2026-bof (these slides)", "url": "https://jastice.github.io/bazelcon-2026-bof/" },
       { "label": "youtrack.jetbrains.com/issues/BAZEL", "url": "https://youtrack.jetbrains.com/issues/BAZEL" },
       { "label": "github.com/JetBrains/hirschgarten", "url": "https://github.com/JetBrains/hirschgarten" }
     ]
