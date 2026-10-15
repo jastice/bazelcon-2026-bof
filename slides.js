@@ -107,8 +107,7 @@ window.DECK = {
           "bullets": [
             "Navigate from test runner to source: JUnit 4/5, Python",
             "Rerun a single test, run tests in parallel",
-            "**Coverage** via Java agent instead of `bazel coverage`",
-            ["no more `--instrumentation_filter` tuning"],
+            "**Profiling** for Java",
             "Run gutters for test suites, macros, non-imported targets",
             "Profiler, coroutine debugging"
           ],
