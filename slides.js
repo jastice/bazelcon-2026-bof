@@ -118,7 +118,7 @@ window.DECK = {
           "title": "Still open",
           "bullets": [
             "Windows / WSL",
-            "Rust: considering, no work yet",
+            "Rust, JS/TS : considering, no work yet",
             "Roadmap visibility (you asked last year)",
             ["YouTrack meta issues and blog posts"]
           ],
