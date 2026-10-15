@@ -103,13 +103,13 @@ window.DECK = {
         },
         {
           "kicker": "Run & test",
-          "title": "Testing and running",
+          "title": "Testing, running, debugging",
           "bullets": [
-            "Navigate from test runner to source: JUnit 4/5, Python",
+            "Navigate from test runner to source: JUnit 4/5, Python, Go",
             "Rerun a single test, run tests in parallel",
             "**Profiling** for Java",
             "Run gutters for test suites, macros, non-imported targets",
-            "Profiler, coroutine debugging"
+            "Coroutine debugging for Kotlin"
           ],
           "notes": "BAZEL-2087 rerun, BAZEL-2604 parallel, BAZEL-3130 coverage agent, BAZEL-2964 / 3020 gutters, BAZEL-2465 profiler, BAZEL-3110 coroutines."
         },
