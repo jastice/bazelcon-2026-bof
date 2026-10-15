@@ -93,7 +93,7 @@ window.DECK = {
           "title": "Languages",
           "layout": "cards",
           "cards": [
-            { "label": "C++ in IDEA", "tag": "try it now (2026.3)", "text": "`rules_cc` detection; aspect shared between the CLion plugin and the new plugin" },
+            { "label": "C++ in IDEA", "tag": "WIP", "text": "`rules_cc` detection; aspect shared between the CLion plugin and the new plugin" },
             { "label": "Go", "text": "New sync pipeline; Thrift, cff, Stringer codegen; debug and strict deps fixes" },
             { "label": "Python", "text": "Run/debug via Bazel, namespace packages, `imports` attribute, test results and navigation" },
             { "label": "Scala", "text": "Compiler plugins, proto deps. Known open list." },
